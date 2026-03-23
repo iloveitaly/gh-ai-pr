@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+import argparse
+import subprocess
+import sys
+import datetime
+import os
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Trim GitHub Actions artifacts.")
+    parser.add_argument("-l", "--limit", type=int, default=400, help="Storage limit in MB (default: 400)")
+    parser.add_argument("-d", "--days", type=int, default=7, help="Minimum days to retain artifacts (default: 7)")
+    parser.add_argument("-R", "--repo", type=str, help="Target repository (owner/repo). Defaults to GITHUB_REPOSITORY env var or current repo context.")
+    return parser.parse_args()
+
+def get_target_repo(repo_arg):
+    if repo_arg:
+        return repo_arg
+    
+    env_repo = os.environ.get("GITHUB_REPOSITORY")
+    if env_repo:
+        return env_repo
+
+    cmd = ["gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return None
+
+def get_artifacts(repo):
+    print("Fetching artifacts list...", file=sys.stderr)
+    endpoint = f"/repos/{repo}/actions/artifacts"
+    cmd = [
+        "gh", "api",
+        endpoint,
+        "--paginate",
+        "--jq", ".artifacts[] | select(.expired == false) | [.id, .size_in_bytes, .created_at, .name] | @tsv"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error fetching artifacts: {e}", file=sys.stderr)
+        print(f"Stderr: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    artifacts = []
+    if not result.stdout.strip():
+        return artifacts
+
+    for line in result.stdout.strip().split('\n'):
+        parts = line.split('\t')
+        if len(parts) < 4:
+            continue
+        
+        try:
+            art_id = parts[0]
+            size = int(parts[1])
+            created_str = parts[2]
+            name = parts[3]
+            
+            if created_str.endswith('Z'):
+                created_str = created_str[:-1] + '+00:00'
+            created_dt = datetime.datetime.fromisoformat(created_str)
+            
+            artifacts.append({
+                'id': art_id,
+                'size': size,
+                'created_at': created_dt,
+                'name': name
+            })
+        except ValueError as e:
+            print(f"Warning: Failed to parse line '{line}': {e}", file=sys.stderr)
+            continue
+            
+    artifacts.sort(key=lambda x: x['created_at'], reverse=True)
+    return artifacts
+
+def format_size(size_bytes):
+    if size_bytes == 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    while size_bytes >= 1024 and i < len(units) - 1:
+        size_bytes /= 1024.0
+        i += 1
+    return f"{size_bytes:.2f} {units[i]}"
+
+def delete_artifact(repo, art_id, name, size, created_at):
+    print(f"Deleting {name} (ID: {art_id}, Size: {format_size(size)}, Created: {created_at})...")
+    cmd = [
+        "gh", "api",
+        f"/repos/{repo}/actions/artifacts/{art_id}",
+        "--method", "DELETE",
+        "--silent"
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Error deleting artifact {art_id}: {e}", file=sys.stderr)
+        return False
+
+def main():
+    args = parse_args()
+    
+    repo = get_target_repo(args.repo)
+    if not repo:
+        print("Error: Could not determine target repository. Use --repo or run in a repo context.", file=sys.stderr)
+        sys.exit(1)
+        
+    print(f"Target Repository: {repo}")
+    
+    limit_bytes = args.limit * 1024 * 1024
+    min_retention_days = args.days
+    
+    now = datetime.datetime.now(datetime.timezone.utc)
+    retention_cutoff = now - datetime.timedelta(days=min_retention_days)
+    
+    artifacts = get_artifacts(repo)
+    
+    total_count = len(artifacts)
+    total_size = sum(a['size'] for a in artifacts)
+    
+    print(f"Total Artifacts: {total_count}")
+    print(f"Total Size: {format_size(total_size)}")
+    print(f"Limit: {args.limit} MB")
+    print(f"Retention Policy: Keep artifacts newer than {min_retention_days} days ({retention_cutoff.isoformat()})")
+    print("-" * 40)
+
+    current_usage = 0
+    deleted_count = 0
+    retained_count = 0
+    
+    for art in artifacts:
+        is_recent = art['created_at'] > retention_cutoff
+        
+        if is_recent:
+            current_usage += art['size']
+            retained_count += 1
+        elif (current_usage + art['size']) <= limit_bytes:
+            current_usage += art['size']
+            retained_count += 1
+        else:
+            if delete_artifact(repo, art['id'], art['name'], art['size'], art['created_at']):
+                deleted_count += 1
+            else:
+                current_usage += art['size']
+
+    print("-" * 40)
+    print(f"Cleanup complete.")
+    print(f"Deleted: {deleted_count}")
+    print(f"Retained: {retained_count}")
+    print(f"Final Estimated Usage: {format_size(current_usage)}")
+
+if __name__ == "__main__":
+    main()
