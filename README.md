@@ -1,25 +1,18 @@
 # AI Pull Request Generator (`gh ai-pr`)
 
-Generating pull request descriptions shouldn't be a manual chore. This extension analyzes your branch's Git history—including commit titles and extended bodies—and combines them with your project's PR template to generate a perfectly formatted prompt for an LLM.
+Generating pull request descriptions shouldn't be a manual chore. This extension analyzes your branch's Git history—including commit titles and extended bodies—and combines them with your project's PR template to generate a structured, XML-tagged prompt for an LLM.
 
 ## Installation
 
-Install it as a GitHub CLI extension to use it across all your local repositories.
+Install it directly as a GitHub CLI extension:
 
 ```bash
-gh extension install <your-username>/gh-ai-pr
+gh extension install iloveitaly/gh-ai-pr
 ```
 
-For local development:
-
-```bash
-# Clone the repo
-git clone https://github.com/<your-username>/gh-ai-pr
-cd gh-ai-pr
-
-# Install locally
-gh extension install .
-```
+### Requirements
+- [GitHub CLI (`gh`)](https://cli.github.com/)
+- [uv](https://github.com/astral-sh/uv) (for running the underlying extraction tool)
 
 ## Usage
 
@@ -30,25 +23,23 @@ gh ai-pr
 ```
 
 The script will:
-1. Identify your base branch (e.g., `main` or `master`).
-2. Gather all commits on your current branch that aren't in the base branch.
-3. Locate your `PULL_REQUEST_TEMPLATE.md` (if it exists).
-4. Output a comprehensive prompt you can paste into your favorite LLM (ChatGPT, Claude, Gemini, etc.) to generate your PR description.
+1.  **Identify your base branch** (e.g., `main` or `master`) automatically.
+2.  **Extract Git History**: Uses [`git-history-extraction`](https://github.com/iloveitaly/git-history-extraction) to gather comprehensive JSON data of your branch's changes.
+3.  **Locate PR Templates**: Scans your repository for `PULL_REQUEST_TEMPLATE.md` or uses a sane fallback if none is found.
+4.  **Generate Prompt**: Outputs a structured XML prompt containing the history and template, ready to be pasted into Claude, ChatGPT, or Gemini.
 
 ## Features
 
-*   **Deep History Analysis**: Pulls not just the commit titles, but the full extended bodies of every commit on the branch.
-*   **Template Aware**: Automatically finds and includes your project's `PULL_REQUEST_TEMPLATE.md` from `.github/` or the root directory.
-*   **Zero Configuration**: Automatically detects the default branch and your current branch context.
-*   **Pathlib Powered**: Modern, robust file and path handling using Python's `pathlib`.
-*   **Portable**: Works as a native `gh` extension across your entire machine.
+*   **Deep Context**: Unlike simple log tools, it captures the full intent of your changes by leveraging JSON-formatted history.
+*   **Template Aware**: Respects your repository's existing PR templates while providing a high-quality fallback for projects without one.
+*   **Structured Output**: Uses XML-style tags (`<git_history>`, `<pr_template>`) to help LLMs parse and follow instructions more accurately.
+*   **Smart Issue Discovery**: Explicitly instructs the LLM to use GitHub search tools (like MCP) to link related issues and mention them in the description.
+*   **Self-Managing**: Built with `uv` inline script metadata, ensuring it runs with the correct environment every time.
 
 ## How it works
 
-The extension follows a robust detection logic:
-1. **Base Branch Discovery**: It tries to find the default branch via `gh repo view`, falls back to `origin/HEAD`, and finally checks for local `main` or `master` branches.
-2. **Commit Extraction**: It uses `git log` to extract everything between the base branch and your current HEAD.
-3. **Template Search**: It scans common locations including `.github/PULL_REQUEST_TEMPLATE/` directories for a matching markdown template.
-4. **Prompt Generation**: It assembles these pieces into a structured prompt designed to give an LLM the best possible context for writing your PR.
+1.  **History Analysis**: It calls `uv tool run git-history-extraction@latest` to get a structured representation of every change on your branch since it diverged from the base branch.
+2.  **Template Priority**: It prioritizes `.github/PULL_REQUEST_TEMPLATE.md`, then other common locations, and finally falls back to a comprehensive default if no local template is found.
+3.  **Contextual Instructions**: The final prompt includes specific instructions for the LLM to search for related issues and follow the specific formatting requirements of the provided template.
 
 ## [MIT License](LICENSE.md)
