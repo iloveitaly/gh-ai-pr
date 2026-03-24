@@ -118,7 +118,12 @@ def main():
 
 Please provide a title for the pull request and a detailed description following the {template_type} provided above.
 
-If you have access to GitHub search tools (e.g., via MCP), please search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate, especially if the template asks for related links or issues."""
+When writing the description, please follow these guidelines:
+- Be clear and concise.
+- Focus more on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line "what" was changed.
+- Avoid unnecessary adjectives or salesy language.
+- If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
+"""
     
     print(prompt)
 
