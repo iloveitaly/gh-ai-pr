@@ -1,89 +1,54 @@
-# Manage GitHub Artifacts
+# AI Pull Request Generator (`gh ai-pr`)
 
-Managing GitHub Actions artifacts can be a pain. I realized I was hoarding gigabytes of old build logs and binaries I'd never look at again. It felt like digital clutter taking up mental space—and actual storage quota. So I wrote this extension. It keeps your recent artifacts safe while ruthlessly pruning the old stuff once you hit a size limit. Think of it as a garbage collector for your CI/CD pipeline.
+Generating pull request descriptions shouldn't be a manual chore. This extension analyzes your branch's Git history—including commit titles and extended bodies—and combines them with your project's PR template to generate a perfectly formatted prompt for an LLM.
 
 ## Installation
 
-You can install this directly as a GitHub CLI extension. It's the easiest way to get it running in your workflow.
+Install it as a GitHub CLI extension to use it across all your local repositories.
 
 ```bash
-gh extension install <your-username>/gh-clean-artifacts
+gh extension install <your-username>/gh-ai-pr
 ```
 
-If you prefer running it locally or hacking on it, `uv` is your best friend here.
+For local development:
 
 ```bash
-# Make the script executable
-chmod +x gh-clean-artifacts
+# Clone the repo
+git clone https://github.com/<your-username>/gh-ai-pr
+cd gh-ai-pr
 
-# Run with uv
-uv run gh-clean-artifacts --help
+# Install locally
+gh extension install .
 ```
 
 ## Usage
 
-The defaults are sane: keep 7 days of history, but cap the total size at 400MB. If you're running a lean operation, you might want to tighten that up.
+Simply run the command from any branch in any local repository:
 
 ```bash
-gh clean-artifacts --limit 100 --days 3
+gh ai-pr
 ```
 
-This tells the script: "Keep the last 3 days no matter what, but purge anything else if the total folder size exceeds 100MB."
+The script will:
+1. Identify your base branch (e.g., `main` or `master`).
+2. Gather all commits on your current branch that aren't in the base branch.
+3. Locate your `PULL_REQUEST_TEMPLATE.md` (if it exists).
+4. Output a comprehensive prompt you can paste into your favorite LLM (ChatGPT, Claude, Gemini, etc.) to generate your PR description.
 
 ## Features
 
-*   **Smart Retention**: Always keeps your newest artifacts within the window you define (default is 7 days).
-*   **Size Capping**: Enforces a hard limit on total storage (default 400MB), deleting the oldest artifacts first once the safety window is passed.
-*   **GitHub CLI Native**: Integrates seamlessly as a `gh` extension, so you don't need to juggle API tokens manually.
-*   **Verbose Logging**: Prints detailed information about every artifact it keeps or deletes, so you have a complete audit trail of what happened.
-
-## ⚠️ Warning
-
-**This tool deletes data permanently.**
-
-There is no "undo" bin for GitHub Artifacts. Once this script runs, the artifacts exceeding your limits are gone. I highly recommend running with a generous `--limit` first to see how much space you are actually using before tightening the screws.
-
-## Automation
-
-Since the GitHub CLI is already baked into `ubuntu-latest` (and most other runners), you don't have to install anything extra. It's the perfect "set and forget" task. 
-
-The extension automatically detects your repository using the `GITHUB_REPOSITORY` environment variable provided by GitHub Actions, so **no checkout step is required**.
-
-You can drop a workflow file like this into `.github/workflows/cleanup.yml`:
-
-```yaml
-name: Cleanup Artifacts
-on:
-  schedule:
-    - cron: '0 0 * * *' # Run daily at midnight
-  workflow_dispatch:
-
-jobs:
-  cleanup:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Run Cleanup
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Install the extension
-          gh extension install iloveitaly/gh-clean-artifacts
-          
-          # Option 1: Automatic repository detection (recommended)
-          gh clean-artifacts --limit 500 --days 7
-          
-          # Option 2: Explicit repository reference
-          # gh clean-artifacts --repo "${{ github.repository }}" --limit 500 --days 7
-```
+*   **Deep History Analysis**: Pulls not just the commit titles, but the full extended bodies of every commit on the branch.
+*   **Template Aware**: Automatically finds and includes your project's `PULL_REQUEST_TEMPLATE.md` from `.github/` or the root directory.
+*   **Zero Configuration**: Automatically detects the default branch and your current branch context.
+*   **Pathlib Powered**: Modern, robust file and path handling using Python's `pathlib`.
+*   **Portable**: Works as a native `gh` extension across your entire machine.
 
 ## How it works
 
-The logic is strictly prioritized to save your most recent work while respecting your storage cap:
-
-1.  **Retention Window**: Any artifact newer than `--days` (default: 7) is **kept**, period. Even if you have 10GB of artifacts from yesterday, they stay.
-2.  **Size Limit**: For artifacts *older* than the retention window, we keep them until the *total* size of all artifacts (new + old) hits the `--limit` (default: 400MB).
-3.  **Cleanup**: Once the limit is reached, the remaining older artifacts are deleted, starting from the oldest.
+The extension follows a robust detection logic:
+1. **Base Branch Discovery**: It tries to find the default branch via `gh repo view`, falls back to `origin/HEAD`, and finally checks for local `main` or `master` branches.
+2. **Commit Extraction**: It uses `git log` to extract everything between the base branch and your current HEAD.
+3. **Template Search**: It scans common locations including `.github/PULL_REQUEST_TEMPLATE/` directories for a matching markdown template.
+4. **Prompt Generation**: It assembles these pieces into a structured prompt designed to give an LLM the best possible context for writing your PR.
 
 ## [MIT License](LICENSE.md)
