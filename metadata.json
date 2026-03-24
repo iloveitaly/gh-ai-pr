@@ -1,11 +1,11 @@
 {
-  "name": "gh-clean-artifacts",
-  "description": "Prune GitHub Actions artifacts by age and total size to manage storage costs.",
-  "homepage": "https://github.com/iloveitaly/gh-clean-artifacts",
+  "name": "gh-ai-pr",
+  "description": "Generate structured LLM prompts for pull request descriptions using git history and templates.",
+  "homepage": "https://github.com/iloveitaly/gh-ai-pr",
   "keywords": [
-    "github",
-    "artifacts",
-    "cleanup",
-    "devops"
+    "gh-extension",
+    "pull-request",
+    "llm",
+    "git-history"
   ]
 }
