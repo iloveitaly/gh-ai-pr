@@ -14,7 +14,7 @@ DEFAULT_TEMPLATE = """## Motivation
 
 ## Description
 
-<-- describe the change that was made and why we took this approach -->
+<!-- describe the change that was made and why we took this approach -->
 
 ## Screenshots / Test
 
@@ -116,11 +116,14 @@ def main():
 {template}
 </{template_type.replace(' ', '_')}>
 
-Please provide a title for the pull request and a detailed description following the {template_type} provided above.
+Provide a title for the pull request and a description following the {template_type} provided above.
 
 When writing the description, please follow these guidelines:
-- Be clear and concise.
-- Focus more on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line "what" was changed.
+
+- Be clear and concise. No emojis.
+- Bullet lists are fine, but don't bold the start of each bullet.
+- Unless <git_history> is completely focused on the test suite, do not include information about test changes in a 'Description' section.
+- Focus on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line description of "what" was changed.
 - Avoid unnecessary adjectives or salesy language.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
 """
