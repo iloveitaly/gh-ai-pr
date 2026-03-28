@@ -63,9 +63,12 @@ def get_current_branch():
     return run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
 def get_history():
-    # Use the requested tool to get history in JSON format
-    cmd = ["uv", "tool", "run", "git-history-extraction@latest", "--branch", "--format", "json", "--remote"]
-    return run_command(cmd)
+    # Use the library to get history. This will return a list of dicts.
+    commits = extract_history(
+        branch=get_current_branch(),
+        include_stats=True
+    )
+    return json.dumps(commits, indent=2)
 
 def find_pr_template():
     search_paths = [
@@ -130,6 +133,13 @@ When writing the description, please follow these guidelines:
 - Focus on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line description of "what" was changed.
 - Avoid unnecessary adjectives or salesy language.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
+"""
+    
+    print(prompt)
+
+if __name__ == "__main__":
+    main()
+on if appropriate.
 """
     
     print(prompt)
