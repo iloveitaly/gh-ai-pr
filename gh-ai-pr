@@ -1,12 +1,16 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#     "git-history-extraction",
+# ]
 # ///
 
 import subprocess
 import sys
+import json
 from pathlib import Path
+from git_history_extraction import extract_history
 
 DEFAULT_TEMPLATE = """## Motivation
 
@@ -62,10 +66,10 @@ def get_base_branch():
 def get_current_branch():
     return run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
-def get_history():
+def get_history(branch=None):
     # Use the library to get history. This will return a list of dicts.
     commits = extract_history(
-        branch=get_current_branch(),
+        branch=branch,
         include_stats=True
     )
     return json.dumps(commits, indent=2)
@@ -97,9 +101,12 @@ def main():
         print("Error: Could not determine current branch.", file=sys.stderr)
         sys.exit(1)
 
-    # We use the git-history-extraction tool regardless of branch
-    # as it's designed to be the primary history source for the LLM
-    history_json = get_history()
+    if current in [base, "main", "master"]:
+        print(f"Error: You are on the default branch ({current}). Please switch to a unique feature branch to generate a PR description.", file=sys.stderr)
+        sys.exit(1)
+    
+    # We use the git-history-extraction tool for the current feature branch
+    history_json = get_history(branch=current)
     
     if not history_json:
         print("Error: Failed to extract git history using git-history-extraction.", file=sys.stderr)
@@ -133,13 +140,6 @@ When writing the description, please follow these guidelines:
 - Focus on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line description of "what" was changed.
 - Avoid unnecessary adjectives or salesy language.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
-"""
-    
-    print(prompt)
-
-if __name__ == "__main__":
-    main()
-on if appropriate.
 """
     
     print(prompt)
