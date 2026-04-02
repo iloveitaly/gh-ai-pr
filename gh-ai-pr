@@ -134,11 +134,13 @@ Provide a title for the pull request and a description following the {template_t
 
 When writing the description, please follow these guidelines:
 
-- Be clear and concise. No emojis.
+- Be extremely clear, direct, and concise (1-2 sentences max for Motivation). No emojis.
 - Bullet lists are fine, but don't bold the start of each bullet.
-- Unless <git_history> is completely focused on the test suite, do not include information about test changes in a 'Description' section.
 - Focus on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line description of "what" was changed.
 - Avoid unnecessary adjectives or salesy language.
+- Omit the `## Links` section entirely if there are no related issues or links to include.
+- Omit the `## Test` section entirely if the pull request only contains documentation updates.
+- Unless `<git_history>` is completely focused on the test suite, do not include information about test changes in the `## Description` section.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
 """
     
