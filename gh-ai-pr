@@ -132,6 +132,8 @@ def main():
 
 Provide a title for the pull request and a description following the {template_type} provided above.
 
+The title should be in a conventional commit format.
+
 When writing the description, please follow these guidelines:
 
 - Be extremely clear, direct, and concise (1-2 sentences max for Motivation). No emojis.
