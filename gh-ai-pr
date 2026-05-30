@@ -23,7 +23,7 @@ DEFAULT_TEMPLATE = """## Motivation
 ## Test
 
 <!--
-- a very short, concise information on how this is tested
+- a very short, concise information on what was added in the PR to test this
 - always include all testing details here, and not in `Description`, unless the entire PR is changes to the test suite. If that's the case, omit this section.
 - if we are changing the design, link to a dev environment or screenshot describing the change
 -->
