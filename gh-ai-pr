@@ -23,7 +23,7 @@ DEFAULT_TEMPLATE = """## Motivation
 ## Test
 
 <!--
-- a very short, concise information on what was added in the PR to test this
+- very short, concise summary on what tests were added to test the changes in this PR
 - always include all testing details here, and not in `Description`, unless the entire PR is changes to the test suite. If that's the case, omit this section.
 - if we are changing the design, link to a dev environment or screenshot describing the change
 -->
@@ -130,12 +130,14 @@ def main():
 {template}
 </{template_type.replace(' ', '_')}>
 
-Provide a title for the pull request and a description following the {template_type} provided above.
+<task>
+Provide a title for the pull request and a description following the fallback pull request template provided above.
+</task>
 
+<title_rules>
 The title should be in a conventional commit format.
-
-When writing the description, please follow these guidelines:
-
+</title_rules>
+<description_rules>
 - Be extremely clear, direct, and concise (1-2 sentences max for Motivation). No emojis.
 - Bullet lists are fine, but don't bold the start of each bullet.
 - Focus on "why" the changes were made and "how" they achieve the goal, rather than a line-by-line description of "what" was changed.
@@ -144,6 +146,7 @@ When writing the description, please follow these guidelines:
 - Omit the `## Test` section entirely if the pull request only contains documentation updates.
 - Unless `<git_history>` is completely focused on the test suite, do not include information about test changes in the `## Description` section.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
+</description_rules>
 """
     
     print(prompt)
