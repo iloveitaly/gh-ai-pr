@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "git-history-extraction",
+#     "git-history-extraction>=0.11",
 # ]
 # ///
 
