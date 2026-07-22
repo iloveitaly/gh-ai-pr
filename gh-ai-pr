@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "git-history-extraction>=0.11",
+#     "git-history-extraction>=0.11.1",
 # ]
 # ///
 
@@ -146,6 +146,9 @@ The title should be in a conventional commit format.
 - Omit the `## Test` section entirely if the pull request only contains documentation updates.
 - Unless `<git_history>` is completely focused on the test suite, do not include information about test changes in the `## Description` section.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
+- If you are unsure of the correct scope or semantic commit type, take a look at past commits from a PR
+- If something was not done, no need to indicate it unless it's very significant. i.e. do not include 'No automated tests added'
+- When you are asked to create the PR, use `gh pr create`
 </description_rules>
 """
     
