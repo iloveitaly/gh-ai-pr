@@ -66,9 +66,17 @@ def get_base_branch():
 def get_current_branch():
     return run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
+def get_repo_root():
+    return run_command(["git", "rev-parse", "--show-toplevel"])
+
 def get_history(branch=None):
     # Use the library to get history. This will return a list of dicts.
+    # git-history-extraction requires the exact repo root (it does not
+    # search parent directories), so resolve it explicitly in case we're
+    # invoked from a subdirectory of the repo.
+    repo_root = get_repo_root() or "."
     commits = extract_history(
+        repo_path=repo_root,
         branch=branch,
         include_stats=True
     )
