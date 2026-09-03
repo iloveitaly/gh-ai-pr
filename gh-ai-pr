@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "click>=8.1",
 #     "git-history-extraction>=0.11.1",
 # ]
 # ///
@@ -10,6 +11,8 @@ import subprocess
 import sys
 import json
 from pathlib import Path
+
+import click
 from git_history_extraction import extract_history
 
 DEFAULT_TEMPLATE = """## Motivation
@@ -69,18 +72,81 @@ def get_current_branch():
 def get_repo_root():
     return run_command(["git", "rev-parse", "--show-toplevel"])
 
-def get_history(branch=None):
+def get_history(branch=None, since_commit=None):
     # Use the library to get history. This will return a list of dicts.
     # git-history-extraction requires the exact repo root (it does not
     # search parent directories), so resolve it explicitly in case we're
     # invoked from a subdirectory of the repo.
     repo_root = get_repo_root() or "."
-    commits = extract_history(
-        repo_path=repo_root,
-        branch=branch,
-        include_stats=True
-    )
+
+    # `since_commit` (used for --stacked) scopes history to HEAD..since_commit
+    # directly, bypassing the library's own default-branch lookup that `branch`
+    # would trigger.
+    if since_commit:
+        # remote=False keeps until_commit at "HEAD"; otherwise the library
+        # overwrites it with the repo's default branch, breaking the range.
+        commits = extract_history(
+            repo_path=repo_root,
+            since_commit=since_commit,
+            remote=False,
+            include_stats=True
+        )
+    else:
+        commits = extract_history(
+            repo_path=repo_root,
+            branch=branch,
+            include_stats=True
+        )
+
     return json.dumps(commits, indent=2)
+
+def list_candidate_branches(current):
+    local = run_command(["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"], silent=True) or ""
+    remote = run_command(["git", "for-each-ref", "--format=%(refname:short)", "refs/remotes/"], silent=True) or ""
+
+    branches = set(local.splitlines()) | set(remote.splitlines())
+    branches.discard(current)
+    branches = {b for b in branches if not b.endswith("/HEAD")}
+
+    return branches
+
+def find_stacked_base(current, default_base):
+    # Find the branch this one is stacked on top of, even if that branch has
+    # since diverged (been rebased, amended, or grown further commits).
+    #
+    # For each candidate branch, `merge-base` gives the commit where histories
+    # forked. The candidate whose fork point is most recent in `current`'s own
+    # history (fewest commits between fork point and `current`) is the closest
+    # stacked parent, regardless of what happened on the candidate afterward.
+    #
+    # Sibling branches forked from the same point tie on that distance (e.g.
+    # C and E both forked from C, so D ties against both). Break ties by
+    # preferring the candidate whose own tip is closest to the fork point,
+    # since a candidate that has drifted further past it is more likely an
+    # unrelated sibling than the actual stack parent.
+    best_branch = None
+    best_score = None
+
+    for candidate in list_candidate_branches(current):
+        merge_base = run_command(["git", "merge-base", current, candidate], silent=True)
+        if not merge_base:
+            continue
+
+        # skip branches stacked on top of `current` (descendants), we only want ancestors
+        if run_command(["git", "merge-base", "--is-ancestor", current, candidate], silent=True) is not None:
+            continue
+
+        distance_str = run_command(["git", "rev-list", "--count", f"{merge_base}..{current}"], silent=True)
+        drift_str = run_command(["git", "rev-list", "--count", f"{merge_base}..{candidate}"], silent=True)
+        if distance_str is None or drift_str is None:
+            continue
+
+        score = (int(distance_str), int(drift_str))
+        if best_score is None or score < best_score:
+            best_score = score
+            best_branch = candidate
+
+    return best_branch or default_base
 
 def find_pr_template():
     search_paths = [
@@ -101,10 +167,12 @@ def find_pr_template():
                 
     return None
 
-def main():
+@click.command()
+@click.option("--stack", "stacked", is_flag=True, help="Scope history to the branch this one is stacked on, instead of the repo's default branch.")
+def main(stacked):
     base = get_base_branch()
     current = get_current_branch()
-    
+
     if not current:
         print("Error: Could not determine current branch.", file=sys.stderr)
         sys.exit(1)
@@ -112,10 +180,21 @@ def main():
     if current in [base, "main", "master"]:
         print(f"Error: You are on the default branch ({current}). Please switch to a unique feature branch to generate a PR description.", file=sys.stderr)
         sys.exit(1)
-    
+
+    stacked_base = None
+    if stacked:
+        stacked_base = find_stacked_base(current, base)
+        if stacked_base == base:
+            print(f"Warning: No stacked parent branch found, falling back to default branch ({base}).", file=sys.stderr)
+        else:
+            print(f"Detected stacked parent branch: {stacked_base}", file=sys.stderr)
+
     # We use the git-history-extraction tool for the current feature branch
-    history_json = get_history(branch=current)
-    
+    if stacked_base and stacked_base != base:
+        history_json = get_history(since_commit=stacked_base)
+    else:
+        history_json = get_history(branch=current)
+
     if not history_json:
         print("Error: Failed to extract git history using git-history-extraction.", file=sys.stderr)
         sys.exit(1)
@@ -128,6 +207,10 @@ def main():
         template = DEFAULT_TEMPLATE
         template_type = "fallback pull request template"
     
+    stacked_base_rule = ""
+    if stacked_base and stacked_base != base:
+        stacked_base_rule = f'. This is a stacked PR, so pass `--base "{stacked_base}"` to `gh pr create` instead of the repo default branch'
+
     prompt = f"""Generate a pull request description based on the following context.
 
 <git_history>
@@ -156,7 +239,7 @@ The title should be in a conventional commit format.
 - If you have access to GitHub search tools (e.g., via MCP), search the repository for any issues mentioned or related to these changes. Include 'Fixes #X' or 'Relates to #X' in the pull request description if appropriate.
 - If you are unsure of the correct scope or semantic commit type, take a look at past commits from a PR
 - If something was not done, no need to indicate it unless it's very significant. i.e. do not include 'No automated tests added'
-- When you are asked to create the PR, use `git push -u origin HEAD && gh pr create --head "$(git branch --show-current)" ...`. Sometimes `fork` is the right remote if we don't have write access to `origin`
+- When you are asked to create the PR, use `git push -u origin HEAD && gh pr create --head "$(git branch --show-current)" ...`. Sometimes `fork` is the right remote if we don't have write access to `origin`{stacked_base_rule}
 </description_rules>
 """
     

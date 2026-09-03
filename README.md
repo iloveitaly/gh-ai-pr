@@ -24,9 +24,16 @@ gh ai-pr
 
 The tool will find your base branch, extract the history using `git-history-extraction`, locate your PR template, and output an XML-tagged prompt.
 
+For a branch stacked on top of another feature branch, pass `--stack` to scope the history to just that branch's own commits instead of the repo's default branch:
+
+```bash
+gh ai-pr --stack
+```
+
 ## Features
 
 - **History Analysis**: Captures branch intent by extracting structured JSON history of your changes via `git-history-extraction`.
+- **Stacked PR Support**: `--stack` detects the branch this one is stacked on, even if that branch has since diverged, and scopes history and the generated PR command's `--base` to it.
 - **Template Awareness**: Prioritizes `.github/PULL_REQUEST_TEMPLATE.md` and falls back to a sane default.
 - **Structured Prompts**: Uses XML-style tags to help LLMs parse instructions and context more accurately.
 - **Issue Discovery**: Instructs the LLM to use GitHub search tools to link related issues.
