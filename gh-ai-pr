@@ -17,7 +17,12 @@ from git_history_extraction import extract_history
 
 DEFAULT_TEMPLATE = """## Motivation
 
-<!-- why we are making this change -->
+
+<!--
+- describe why we are making this change
+- include business/non-technical context when you have it
+- if applicable, reference the github issue `fixed #123`
+-->
 
 ## Description
 
@@ -26,9 +31,15 @@ DEFAULT_TEMPLATE = """## Motivation
 ## Test
 
 <!--
-- very short, concise summary on what tests were added to test the changes in this PR
+- very short, concise information on how this is tested
 - always include all testing details here, and not in `Description`, unless the entire PR is changes to the test suite. If that's the case, omit this section.
 - if we are changing the design, link to a dev environment or screenshot describing the change
+-->
+
+<!--
+## Unrelated Fixes
+
+If you made unrelated changes to the codebase, list them in a short concise bullet list.
 -->
 
 ## Links
